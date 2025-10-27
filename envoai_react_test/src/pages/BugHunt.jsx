@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect,useRef } from 'react'
 import './BugHunt.css'
 
+//Suggestion for improvement : use typeScript
+
 function BugHunt() {
-  const [counter, setCounter] = useState(0)
   const [items, setItems] = useState([
     { id: 1, name: 'Item 1', price: 10, quantity: 1 },
     { id: 2, name: 'Item 2', price: 20, quantity: 2 },
@@ -12,20 +13,39 @@ function BugHunt() {
   const [username, setUsername] = useState('')
   const [isLoggedIn, setIsLoggedIn] = useState(false)
 
-  useEffect(() => {
-    setCounter(counter + 1)
-  }, [counter])
-
+  // Bug fix  //
+  const counter = useRef(0);
+  const [, forceRender] = useState(0); //ui update
+  useEffect(() => { //help from chatGBT
+    /*
+      Because useEffect was dependent on the counter value 
+      every time the page was rendered 
+      so the following code replaced the previous code
+    */
+    const interval = setInterval(() => {
+      counter.current += 1;
+      forceRender((n) => n + 1);
+    }, 100);
+    return () => clearInterval(interval); // clear timer
+  }, []);
+// end //
   const calculateTotal = () => {
+    /*
+    Bug fix:
+      Instead of =, * should have been used
+    Improvement:
+      It is better to use forEach and get better performance and the code is more readable
+    */
     let total = 0
-    for (let i = 0; i < items.length; i++) {
-      total += items[i].price = items[i].quantity
-    }
+    items.forEach(item=>{ 
+      total += item.price*item.quantity
+    })
     return total
   }
 
   const applyDiscount = (total) => {
-    return total + (total * discount)
+    //Bug fix: The discount percentage calculation was wrong and a new formula was written
+    return total - (total * discount)/100
   }
 
   const handleLogin = () => {
@@ -33,22 +53,38 @@ function BugHunt() {
       alert('Username must be at least 3 characters')
       return
     }
-    setIsLoggedIn(false)
+    setIsLoggedIn(true) //Bug fix
   }
 
   const handleLogout = () => {
-    setIsLoggedIn(true)
+    setIsLoggedIn(false) //Bug fix
     setUsername('')
   }
 
   const updateQuantity = (id, newQuantity) => {
-    setItems(items.map(item => 
-      item.id === id ? { quantity: newQuantity } : item
-    ))
+    /*
+      Bug fix:
+        When the value was set to zero, the item name was deleted and did not return. 
+      Improvement:
+        New code is more readable and increases speed without the need for indentation.
+    */
+    let newItem=[...items]
+    let index=newItem.findIndex(e=>e.id==id)
+    if(index>-1){
+      newItem[index].quantity=newQuantity
+    }
+    setItems(newItem)
   }
 
   const removeItem = (id) => {
-    setItems(items.filter(item => item.id == id))
+    /*
+    Bug fix:
+      When an item was deleted, the item that was deleted would remain and the rest of the items would be deleted (the opposite of the delete function)
+    Improvement:
+      It is better to use the unequal condition with the filter function and filter the sets that should not be deleted
+    */
+    let newItem=items.filter(item => item.id !== id)
+    setItems(newItem)
   }
 
   const total = calculateTotal()
@@ -80,7 +116,7 @@ function BugHunt() {
         {/* Counter Section */}
         <div className="section">
           <h3>Counter Feature</h3>
-          <p>Counter: {counter}</p>
+          <p>Counter: {counter.current}</p>
           <p className="hint">⚠️ Check the browser console and watch the counter behavior</p>
         </div>
 
@@ -121,7 +157,10 @@ function BugHunt() {
               </tr>
             </thead>
             <tbody>
-              {items.map(item => (
+              {items.length==0&& //ux improvement:Notify the user if the item is missing. Item does not exist.
+                <p>Item does not exist.</p>
+              }
+              {items.map((item,key) => (
                 <tr key={item.id}>
                   <td>{item.name}</td>
                   <td>${item.price}</td>
@@ -132,6 +171,7 @@ function BugHunt() {
                       onChange={(e) => updateQuantity(item.id, parseInt(e.target.value) || 0)}
                       min="0"
                       style={{ width: '60px' }}
+                      id={'input'+item.id} //Improvement:It is better to give ids to inputs
                     />
                   </td>
                   <td>${(item.price * item.quantity).toFixed(2)}</td>
